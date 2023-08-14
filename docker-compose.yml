@@ -1,0 +1,36 @@
+version: '3'
+
+networks:
+  net:
+
+services:
+  judge:
+    build:
+      context: /judgeService
+      dockerfile: Dockerfile
+    container_name: judge
+    image: judge_image
+    volumes:
+      - ./judgeService/scoresVol:/app/scoresVol
+    networks:
+      - net
+    ports:
+      - "8000:8000"
+
+  player1:
+    build:
+      context: /player1Service
+      dockerfile: Dockerfile
+    container_name: player1
+    image: player1_image
+    networks:
+      - net
+
+  player2:
+    build:
+      context: /player2Service
+      dockerfile: Dockerfile
+    container_name: player2
+    image: player2_image
+    networks:
+      - net
