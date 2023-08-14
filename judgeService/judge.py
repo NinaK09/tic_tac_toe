@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict
 import requests
 import json
+import datetime
 
 
 winsGlobal = { #zapamietywanie wynikow rozgrywek
@@ -11,9 +12,7 @@ winsGlobal = { #zapamietywanie wynikow rozgrywek
     "tie": 0
 }
 
-
 app = FastAPI()
-#PORT: 8000
 
 """
     data:
@@ -42,7 +41,7 @@ async def root():
 #start rozgrywki
 @app.get("/start")
 def startGame():
-    #czysty słownik startowy
+    #czysty słownik na start
     data = {
         "input_json": {
             "matrix":
@@ -60,51 +59,31 @@ def startGame():
         }
     }
 
-    #obecnie po wygranej pierwszy ruch ma ten, na ktorym skonczylo sie sprawdzanie
+    #pierwsze przeslanie pustego jsona
+    r = requests.post(url="http://player1:8000/putmark", data=json.dumps(data)) #json.dumps() - wysylasz klase BASEMODEL
 
-    #pierwsze wyslanie czystego jsona
-    r = requests.put(url="http://player1:8000/putmark", data=json.dumps(data)) #json.dumps() - wysylasz rodzaj BASEMODEL
-    global winsGlobal #bez tego nie da sie modyfikowac zawartosci
-    isWin = 0
-    whoWon = "none"
-
-    while(True):
-        dataR = r.json() #r.json() zmienia uzyskany wynik na zwykły Dict. nie traktuj go jak json/dict z basemodel
-        wins = dataR["input_json"]["wins"]
-        isWin = wins["player1"] + wins["player2"] + wins["tie"] #ilość wygranych
-        if(isWin >= 1): #jesli wystapila wygrana:
-            if(wins["player1"] == 1):
-                winsGlobal["player1"] += 1
-                whoWon = "player1"
-            if (wins["player2"] == 1):
-                winsGlobal["player2"] += 1
-                whoWon = "player2"
-            if (wins["tie"] == 1):
-                winsGlobal["tie"] += 1
-                whoWon = "tie"
-            break
-        #===przeslanie do player2===
-        rr = requests.put(url="http://player2:8000/putmark", data=json.dumps(dataR)) #8000, bo taki jest domyslny dla uvicorna
-        dataRR = rr.json()
-        wins = dataRR["input_json"]["wins"]
-        isWin = wins["player1"] + wins["player2"] + wins["tie"]  # ilość wygranych
-        if (isWin >= 1):  #jesli wystapila wygrana:
-            if (wins["player1"] == 1):
-                winsGlobal["player1"] += 1
-                whoWon = "player1"
-            if (wins["player2"] == 1):
-                winsGlobal["player2"] += 1
-                whoWon = "player2"
-            if (wins["tie"] == 1):
-                winsGlobal["tie"] += 1
-                whoWon = "tie"
-            break
-        #==ponowne przeslanie do player1===
-        r = requests.put(url="http://player1:8000/putmark", data=json.dumps(dataRR))
-
-    return {"winner": whoWon}
+    return {"game": "has started"}
 
 @app.get("/stats")
 def gamesStats():
-    #pobieramy z zmiennej globalnej wyniki
+    #pobieramy ze zmiennej globalnej wyniki
     return winsGlobal
+
+@app.put("/updateWins")
+def winners(data: Data):
+    #sent_data = data.input_json
+    wins = data.input_json["wins"]
+
+    global winsGlobal
+    if (wins["player1"] == 1):
+        winsGlobal["player1"] += 1
+    if (wins["player2"] == 1):
+        winsGlobal["player2"] += 1
+    if (wins["tie"] == 1):
+        winsGlobal["tie"] += 1
+
+    current_time = datetime.datetime.now()
+    str_date_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
+
+    with open('scoresVol/WinHistory.csv', 'a+') as f:
+        f.write(str_date_time + ", " + str(winsGlobal)[1:-1] + ";\n")

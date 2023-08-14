@@ -1,19 +1,20 @@
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from typing import Dict
 import json
 import random
+import requests
 
 app = FastAPI()
-#PORT: 6000
 
 class Data(BaseModel):
     input_json: Dict
 
-@app.put("/putmark")
+@app.post("/putmark")
 def putMark(data: Data):
     mark = 'X'
-    sent_data = data.input_json #tu uzywamy data.input_json <- atrybut Basemodel.
+    #sent_data = data.input_json #tu uzywamy data.input_json <- atrybut Basemodel.
                                 # ma się nijak do Dict, jak już jego zawartość jest Dict. nie uzywaj data["key"]["key"] silly
     table = data.input_json["matrix"]
     #for rows in table:
@@ -39,61 +40,56 @@ def putMark(data: Data):
         print(rows)
 
     data = check_if_win(data) #sprawdzanie warunku wygranej
+
+    wins = data.input_json["wins"]
+    isWin = wins["player1"] + wins["player2"] + wins["tie"]
+    if (isWin >= 1):
+        json_compatible_data = jsonable_encoder(data) #basemodel nie jest kompatybilny z jsonem, ale jest funkcja fastAPI :)
+        r = requests.put(url="http://judge:8000/updateWins", data=json.dumps(json_compatible_data))
+    else:
+        json_compatible_data = jsonable_encoder(data)
+        r = requests.post(url="http://player2:8000/putmark", data=json.dumps(json_compatible_data))
     print("=================================================================")
 
-    return data
 
 
 def check_if_win(results):
-        def clearMatrix():
-            results.input_json["matrix"] = [
-                [0, 0, 0],
-                [0, 0, 0],
-                [0, 0, 0]
-            ]
+    def clearMatrix():
+        results.input_json["matrix"] = [
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0]
+        ]
 
-        def addPoint(key):
-            results.input_json["wins"][key] += 1
+    def addPoint(key):
+        results.input_json["wins"][key] += 1
 
-        # GDY TABLICA JEST PELNA - OBSULGA
-        player1_symbol = 'X'
-        player2_symbol = 'Y'
+    # GDY TABLICA JEST PELNA - OBSULGA
+    player1_symbol = 'X'
+    player2_symbol = 'Y'
 
-        table = results.input_json["matrix"]
-        gameResult = results.input_json["wins"]
+    table = results.input_json["matrix"]
+    gameResult = results.input_json["wins"]
 
-        # sprawdzanie czy tablica nie jest przepelniona:
-        free_spaces = []  # miejsca wolne
-        for i, element in enumerate(table): # elm - tablica, i - indeks
-            for position in element: #position - miejsce w tablicy
-                if (position == 0 or position == '0'):
-                    free_spaces.append((i, element.index(position)))  # KROTKA!!
+    # sprawdzanie czy tablica nie jest przepelniona:
+    free_spaces = []  # miejsca wolne
+    for i, element in enumerate(table): # elm - tablica, i - indeks
+        for position in element: #position - miejsce w tablicy
+            if (position == 0 or position == '0'):
+                free_spaces.append((i, element.index(position)))  # KROTKA!!
 
-        if len(free_spaces) == 0:
-            print("TIE")
-            addPoint("tie")
-            clearMatrix()
-            return results
+    if len(free_spaces) == 0:
+        print("TIE")
+        addPoint("tie")
+        clearMatrix()
+        return results
 
+    # poziomo:
+    for i, element in enumerate(table):  # element - wiersz, i - indeks wiersza
         # poziomo:
-        for i, element in enumerate(table):  # element - wiersz, i - indeks wiersza
-            # poziomo:
-            if (element[0] == element[1] == element[2] and element[0] != 0):
-                print("POZIOMO")
-                if (element[0] == player1_symbol):
-                    print("player1 won")
-                    addPoint("player1")
-                    clearMatrix()
-                else:
-                    print("player2 won")
-                    addPoint("player2")
-                    clearMatrix()
-                return results
-
-        # pion - :(
-        if (table[0][0] == table[1][0] == table[2][0] and table[0][0] != 0):
-            print("PIONOWO 1")
-            if (table[0][0] == player1_symbol):
+        if (element[0] == element[1] == element[2] and element[0] != 0):
+            print("POZIOMO")
+            if (element[0] == player1_symbol):
                 print("player1 won")
                 addPoint("player1")
                 clearMatrix()
@@ -101,48 +97,61 @@ def check_if_win(results):
                 print("player2 won")
                 addPoint("player2")
                 clearMatrix()
-
             return results
 
-        if (table[0][1] == table[1][1] == table[2][1] and table[0][1] != 0):
-            print("PIONOWO 2")
-            if (table[0][1] == player1_symbol):
-                print("player1 won")
-                addPoint("player1")
-                clearMatrix()
-            else:
-                print("player2 won")
-                addPoint("player2")
-                clearMatrix()
-
-            return results
-
-        if (table[0][2] == table[1][2] == table[2][2] and table[0][2] != 0):
-            print("PIONOWO 3")
-            if (table[0][2] == player1_symbol):
-                print("player1 won")
-                addPoint("player1")
-                clearMatrix()
-            else:
-                print("player2 won")
-                addPoint("player2")
-                clearMatrix()
-
-            return results
-
-        # skos
-        if (table[1][1] != 0 and (table[0][0] == table[1][1] == table[2][2] or
-                                  table[0][2] == table[1][1] == table[2][0])):
-            print("SKOS")
-            if (table[1][1] == player1_symbol):
-                print("player1 won")
-                addPoint("player1")
-                clearMatrix()
-            if (table[1][1] == player2_symbol):
-                print("player2 won")
-                addPoint("player2")
-                clearMatrix()
-
-            return results
+    # pion - :(
+    if (table[0][0] == table[1][0] == table[2][0] and table[0][0] != 0):
+        print("PIONOWO 1")
+        if (table[0][0] == player1_symbol):
+            print("player1 won")
+            addPoint("player1")
+            clearMatrix()
+        else:
+            print("player2 won")
+            addPoint("player2")
+            clearMatrix()
 
         return results
+
+    if (table[0][1] == table[1][1] == table[2][1] and table[0][1] != 0):
+        print("PIONOWO 2")
+        if (table[0][1] == player1_symbol):
+            print("player1 won")
+            addPoint("player1")
+            clearMatrix()
+        else:
+            print("player2 won")
+            addPoint("player2")
+            clearMatrix()
+
+        return results
+
+    if (table[0][2] == table[1][2] == table[2][2] and table[0][2] != 0):
+        print("PIONOWO 3")
+        if (table[0][2] == player1_symbol):
+            print("player1 won")
+            addPoint("player1")
+            clearMatrix()
+        else:
+            print("player2 won")
+            addPoint("player2")
+            clearMatrix()
+
+        return results
+
+    # skos
+    if (table[1][1] != 0 and (table[0][0] == table[1][1] == table[2][2] or
+                              table[0][2] == table[1][1] == table[2][0])):
+        print("SKOS")
+        if (table[1][1] == player1_symbol):
+            print("player1 won")
+            addPoint("player1")
+            clearMatrix()
+        if (table[1][1] == player2_symbol):
+            print("player2 won")
+            addPoint("player2")
+            clearMatrix()
+
+        return results
+
+    return results

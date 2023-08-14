@@ -1,16 +1,17 @@
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from typing import Dict
 import json
 import random
+import requests
 
 app = FastAPI()
-#PORT: 7000
 
 class Data(BaseModel):
     input_json: Dict
 
-@app.put("/putmark")
+@app.post("/putmark")
 def putMark(data: Data):
     mark = 'Y' #duże O jest tak mało czytelne, have mercy
     sent_data = data.input_json
@@ -38,9 +39,16 @@ def putMark(data: Data):
         print(rows)
 
     data = check_if_win(data)
-    print("=================================================================")
 
-    return data
+    wins = data.input_json["wins"]
+    isWin = wins["player1"] + wins["player2"] + wins["tie"]
+    if (isWin >= 1):
+        json_compatible_data = jsonable_encoder(data)
+        r = requests.put(url="http://judge:8000/updateWins", data=json.dumps(json_compatible_data))
+    else:
+        json_compatible_data = jsonable_encoder(data)
+        r = requests.post(url="http://player1:8000/putmark", data=json.dumps(json_compatible_data))
+    print("=================================================================")
 
 
 def check_if_win(results):
@@ -141,7 +149,6 @@ def check_if_win(results):
             print("player2 won")
             addPoint("player2")
             clearMatrix()
-
         return results
 
     return results
