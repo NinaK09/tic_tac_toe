@@ -4,12 +4,30 @@ networks:
   net:
 
 services:
+
+  postgres:
+    image: postgres:14.0
+    container_name: postgresTTT
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      #- ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - net
+    ports:
+      - "8001:5432"
+
   judge:
     build:
       context: /judgeService
       dockerfile: Dockerfile
     container_name: judge
     image: judge_image
+    env_file:
+      - .env
     volumes:
       - ./judgeService/scoresVol:/app/scoresVol
     networks:
