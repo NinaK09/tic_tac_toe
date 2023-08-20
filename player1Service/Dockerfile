@@ -1,8 +1,12 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9-alpine3.14
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9
 
 COPY requirements.txt /app/requirements.txt
 
 RUN pip install -r /app/requirements.txt
+
+RUN apt-get update
+
+RUN apt-get -y install tzdata
 
 COPY . /app
 

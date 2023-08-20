@@ -4,6 +4,10 @@ COPY requirements.txt /app/requirements.txt
 
 RUN pip install -r /app/requirements.txt
 
+RUN apt-get update
+
+RUN apt-get -y install tzdata
+
 COPY . /app
 
 WORKDIR /app
